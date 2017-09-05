@@ -59,6 +59,24 @@ dirnames,indexnames = download(west,east,south,north,datestart,dateend,variable,
 Download data using the NODC web-service. The parameters of the functions will be transmitted to nodc.noaa.gov
 (http://www.noaa.gov/privacy.html).
 
+## XBT corrections
+
+| value | correction                                        |
+|-------|---------------------------------------------------|
+| 0     | No corrections                                    |
+| 1     | Hanawa et al., 1994 applied (XBT)                 |
+| 5     | Levitus et al., 2009 applied (XBT/MBT)            |
+| 6     | Wijffels et al., 2008 Table 1 applied (XBT)       |
+| 7     | Wijffels et al., 2008 Table 2 applied (XBT)       |
+| 8     | Ishii and Kimoto, 2009 applied (XBT/MBT)          |
+| 9     | Gouretski and Reseghetti, 2010 applied (XBT/MBT)  |
+| 10    | Good, 2011 applied (XBT)                          |
+| 11    | Hamon et al., 2012 applied (XBT/MBT)              |
+| 12    | Gourestki, 2012 applied (XBT)                     |
+| 13    | Cowley et al. 2013 applied (XBT)                  |
+| 14    | Cheng from Cowley et al. 2013 applied (XBT)       |
+| 15    | Cheng et al. (2014)                               |
+
 """
 
 
@@ -166,6 +184,7 @@ function download(west,east,south,north,datestart,dateend,variable,email,xbt_cor
         sleep(10)
     end
 
+    mkpath(basedir)
     tarnames = String[]
 
 

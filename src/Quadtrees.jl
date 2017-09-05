@@ -1,8 +1,8 @@
-module quadtree
+module Quadtrees
 
 using Base.Test
 import Base.length
-#using PyPlot
+using PyPlot
 
 """
 quadtree (of the higher-dimensional equivalent)
@@ -45,7 +45,7 @@ QT{T,TA}(points::Array{T,2}, min::Vector{T}, max::Vector{T}, attribs::Vector{TA}
 function inside(x0,x1,y)
     insd = true
 
-    for i = 1:length(y)
+    @inbounds for i = 1:length(y)
         insd = insd & (x0[i] <= y[i] <= x1[i])
     end
     return insd
@@ -58,15 +58,15 @@ bitget(a,n) = Bool((a & (1 << (n-1))) >> (n-1))
 
 
 
-function intersect_(x0,x1,y0,y1)
+function intersect_(x0,x1,y0,y1)    
     # number of dimensions
     n = size(x0,1)
 
     intrsct = false
     
-    for i = 1:2^n
+    @inbounds for i = 1:2^n
         inside = true
-        for j = 1:n
+        @inbounds for j = 1:n
             if bitget(i-1, j)
                 inside = inside & (x0[j] <= y0[j] <= x1[j])
             else
@@ -94,19 +94,22 @@ Test of the rectanges defined by x0,x1  and y0,y1 intersects
      y0
 """
 
-intersect(x0,x1,y0,y1) = intersect_(x0,x1,y0,y1) || intersect_(y0,y1,x0,x1)
+function intersect(x0,x1,y0,y1)
+    n = size(x0,1)
+    if (n != length(x1)) || (n != length(y0)) || (n != length(y1))
+        throw(ArgumentError("all arguments of intersect must have the same length"))
+    end
 
-#qt = QT_(X)
-
-
-
-isleaf(qt) = length(qt.children) == 0
+    return intersect_(x0,x1,y0,y1) || intersect_(y0,y1,x0,x1)
+end
 
 """
 number of points per node
 it is always zero for non-leaf nodes
 """
 Base.length(qt::QT) = size(qt.points,1)
+
+isleaf(qt) = length(qt.children) == 0
 
 inside(qt::QT,y) = inside(qt.min,qt.max,y)
 Base.intersect(qt::QT,y0,y1) = intersect(qt.min,qt.max,y0,y1)
@@ -175,7 +178,7 @@ function split!{T,TA,N}(qt::QT{T,TA,N})
         cmax = Vector{T}(N)        
         sel = trues(size(qt.points,1))
         
-        for i = 1:nchildren
+        @inbounds for i = 1:nchildren
             sel[:] = true
 
             for j = 1:N
@@ -231,7 +234,7 @@ function rsplit!{T,TA,N}(qt::QT{T,TA,N}, max_cap = 10)
         end
         
         # all points are equal, stop recursion
-        if all(qt.points .== qt.points[1,:]')
+        @inbounds if all(qt.points .== qt.points[1,:]')
             return
         end
 
@@ -258,8 +261,8 @@ function within{T,TA,N}(qt::QT{T,TA,N}, min, max)
 
     if isleaf(qt)
         sel = Vector{Bool}(length(qt))
-        for i = 1:length(qt)
-            sel[i] =  inside(min,max,qt.points[i,:])
+        @inbounds for i = 1:length(qt)
+            @inbounds sel[i] =  inside(min,max,qt.points[i,:])
         end
 
         return qt.points[sel,:], qt.attribs[sel]
@@ -326,6 +329,7 @@ function test()
         @test intersect([0,0],[1,1],[1.5,1.5],[2,2]) == false
         # one rectange contains the other
         @test intersect([0,0],[1,1],[-1,-1],[2,2]) == true
+        @test_throws ArgumentError intersect([0,0],[1,1],[0.5,0.5],[2,2,3]) 
         
         qt = QT(Int,[0.,0.],[1.,1.])
         add!(qt,[0.1,0.1],1)
@@ -339,8 +343,6 @@ function test()
         @test isleaf(qt) == false
         @test isleaf(qt.children[1]) == true
 
-
-        #X = rand(1000000,2)
         X = rand(10000,2)
         attribs = collect(1:size(X,1))
 
@@ -348,13 +350,6 @@ function test()
             qt2 = QT(X,attribs)
             rsplit!(qt2,5)
         end
-
-        @time begin
-            qt2 = QT(X,attribs)
-            rsplit!(qt2,5)
-        end
-
-
 
         #rplot(qt2)
         #plot(X[:,1],X[:,2],"b.")
