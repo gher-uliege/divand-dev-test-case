@@ -212,8 +212,10 @@ function download(lonrange,latrange,timerange,varname,email,basedir)
         for ntries = 1:3
             try
                 Base.download(dataurl,tarnames[end])
+                # download was successful
+                break
             catch e
-                if ntries == 3
+                if ntries != 3
                     rethrow(e)
                 end
             end
