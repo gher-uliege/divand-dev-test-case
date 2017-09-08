@@ -54,38 +54,52 @@ end
 
 
 """
-dirnames,indexnames = download(west,east,south,north,datestart,dateend,variable,email,xbt_correction,basedir)
+dirnames,indexnames = download(lonrange,latrange,timerange,
+    variable,email,basedir)
 
-Download data using the NODC web-service. The parameters of the functions will be transmitted to nodc.noaa.gov
-(http://www.noaa.gov/privacy.html).
+Download data using the NODC web-service. The range parameters are vectors
+from with the frist element is the lower bound and the last element is the upper
+bound. 
 
-## XBT corrections
+The parameters of the functions will 
+be transmitted to nodc.noaa.gov (http://www.noaa.gov/privacy.html).
 
-| value | correction                                        |
-|-------|---------------------------------------------------|
-| 0     | No corrections                                    |
-| 1     | Hanawa et al., 1994 applied (XBT)                 |
-| 5     | Levitus et al., 2009 applied (XBT/MBT)            |
-| 6     | Wijffels et al., 2008 Table 1 applied (XBT)       |
-| 7     | Wijffels et al., 2008 Table 2 applied (XBT)       |
-| 8     | Ishii and Kimoto, 2009 applied (XBT/MBT)          |
-| 9     | Gouretski and Reseghetti, 2010 applied (XBT/MBT)  |
-| 10    | Good, 2011 applied (XBT)                          |
-| 11    | Hamon et al., 2012 applied (XBT/MBT)              |
-| 12    | Gourestki, 2012 applied (XBT)                     |
-| 13    | Cowley et al. 2013 applied (XBT)                  |
-| 14    | Cheng from Cowley et al. 2013 applied (XBT)       |
-| 15    | Cheng et al. (2014)                               |
-
+* No XBT corrections is applied *
 """
 
+function download(lonrange,latrange,timerange,varname,email,basedir)
 
-function download(west,east,south,north,datestart,dateend,variable,email,xbt_correction,basedir)
-
+    west,east = lonrange[[1,end]]
+    south,north = latrange[[1,end]]
+    datestart,dateend = timerange[[1,end]]
     URL = "https://www.nodc.noaa.gov/cgi-bin/OC5/SELECT/dbsearch.pl"
     URLextract = "https://www.nodc.noaa.gov/cgi-bin/OC5/SELECT/dbextract.pl"
     URLselect = "https://data.nodc.noaa.gov/woa/WOD/SELECT/"
 
+    # add more CF name to WOD web portal
+    variables = Dict("Temperature" => "tem")
+    variable = variables[varname]
+    # ## XBT corrections
+
+    # | value | correction                                        |
+    # |-------|---------------------------------------------------|
+    # | 0     | No corrections                                    |
+    # | 1     | Hanawa et al., 1994 applied (XBT)                 |
+    # | 5     | Levitus et al., 2009 applied (XBT/MBT)            |
+    # | 6     | Wijffels et al., 2008 Table 1 applied (XBT)       |
+    # | 7     | Wijffels et al., 2008 Table 2 applied (XBT)       |
+    # | 8     | Ishii and Kimoto, 2009 applied (XBT/MBT)          |
+    # | 9     | Gouretski and Reseghetti, 2010 applied (XBT/MBT)  |
+    # | 10    | Good, 2011 applied (XBT)                          |
+    # | 11    | Hamon et al., 2012 applied (XBT/MBT)              |
+    # | 12    | Gourestki, 2012 applied (XBT)                     |
+    # | 13    | Cowley et al. 2013 applied (XBT)                  |
+    # | 14    | Cheng from Cowley et al. 2013 applied (XBT)       |
+    # | 15    | Cheng et al. (2014)                               |
+
+    # unused when requesting NetCDF files!
+    xbt_correction = 0
+    
     #file_name = "ocldb1504104170.6387"
     #probe_name = "OSD,CTD,XBT,MBT,PFL,DRB,MRB,APB,UOR,SUR,GLD"
     
@@ -176,13 +190,16 @@ function download(west,east,south,north,datestart,dateend,variable,email,xbt_cor
 
         #@show waittime
         # wait maximum 2 additional cycles after a file have become available
-        if (waittime != 0) & (i == waittime +3)
+        if (waittime != 0) & (i == waittime + 2)
             #@show i,waittime
             break
         end
 
         sleep(10)
     end
+
+    # make sure that file are complet
+    sleep(2)
 
     mkpath(basedir)
     tarnames = String[]
@@ -191,7 +208,16 @@ function download(west,east,south,north,datestart,dateend,variable,email,xbt_cor
     for probe in probes_available
         dataurl = "$(URLselect)/$(file_name).$(probe).tar.gz"
         push!(tarnames,joinpath(basedir,"$(file_name).$(probe).tar.gz"))
-        Base.download(dataurl,tarnames[end])
+
+        for ntries = 1:3
+            try
+                Base.download(dataurl,tarnames[end])
+            catch e
+                if ntries == 3
+                    rethrow(e)
+                end
+            end
+        end
     end
 
 
@@ -202,7 +228,8 @@ end
 """
 load(T,dirname,indexname,varname)
 
-Load all profiles with the NetCDF variable `varname` in `dirname` indexed with the NetCDF file `indexname`.
+Load all profiles with the NetCDF variable `varname` in `dirname` indexed with 
+the NetCDF file `indexname`.
 T is the type (e.g. Float64) for numeric return values.
 """
 
@@ -246,10 +273,16 @@ function load!(dirname,indexname,varname,profiles,lons,lats,zs,times,ids)
                 time = nc["time"][:]
 
                 profileflag = nc["$(varname)_WODflag"][:]
+                sigfigs = nc["$(varname)_sigfigs"][:].data
+                # some date are flagged as accepted but have *_sigfigs equal
+                # to zero and bogus value
 
-                good = profileflag .== accepted .& DataArrays.isna.(profile) .& DataArrays.isna.(z)
+                good = ((profileflag .== accepted)  .&
+                        (.!DataArrays.isna.(profile)) .&
+                        (.!DataArrays.isna.(z)) .&
+                        (sigfigs .> 0))
+                
                 sizegood = (sum(good),)
-
                 
                 append!(profiles,profile[good].data)
                 append!(zs,z[good].data)
@@ -287,6 +320,20 @@ function load(T,dirnames::Vector{<:AbstractString},indexnames,varname)
     return profiles,lons,lats,zs,times,ids
 end
 
+
+"""
+Load a list profiles under the directory `basedir` assuming `basedir` was 
+populated by `WorldOceanDatabase.download`.
+"""
+function load(T,basedir::AbstractString,varname)
+    # all directories under basedir
+    dirnames = filter(isdir,[joinpath(basedir,d) for d in readdir(basedir)])
+    # the files starting with ocldb (i.e. matching basedir/*/ocldb*)
+    
+    indexnames = [joinpath(dirn,sort(filter(d -> startswith(d,"ocldb"),readdir(dirn)))[1]) for dirn in dirnames]
+    
+    return load(T,dirnames,indexnames,varname)    
+end
     
 
 end
