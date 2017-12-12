@@ -43,7 +43,7 @@ end
 
 """ 
 savereq(r,fname)
-Save the body request `r` to the fild `fname` for debugging.
+Save the body request `r` to the file `fname` for debugging.
 """
 
 function savereq(r,fname)
@@ -61,6 +61,41 @@ Download data using the NODC web-service. The range parameters are vectors
 from with the frist element is the lower bound and the last element is the upper
 bound. 
 
+
+
+| Variables								| Unit    |
+|:--------------------------------------|:--------|
+| Temperature							| °C      |
+| Salinity								| unitless|
+| Oxygen								| ml l⁻¹  |
+| Phosphate								| µM      |
+| Silicate								| µM      |
+| Nitrate and Nitrate+Nitrite			| µM      |
+| pH									| unitless|
+| Chlorophyll							| µg l⁻¹  |
+| Plankton								| multiple|
+| Alkalinity							| meq l⁻¹ |
+| Partial Pressure of Carbon Dioxide	| µatm    |
+| Dissolved Inorganic Carbon			| mM      |
+| Transmissivity						| m⁻¹     |
+| Pressure								| dbar    |
+| Air temperature						| °C      |
+| CO2 warming							| °C      |
+| CO2 atmosphere						| ppm     |
+| Air pressure							| mbar    |
+| Tritium								| TU      |
+| Helium								| nM      |
+| Delta Helium-3						| %       |
+| Delta Carbon-14						| ᵒ/ᵒᵒ    |
+| Delta Carbon-13						| ᵒ/ᵒᵒ    |
+| Argon									| nM      |
+| Neon									| nM      |
+| Chlorofluorocarbon 11 (CFC 11)		| pM      |
+| Chlorofluorocarbon 12 (CFC 12)		| pM      |
+| Chlorofluorocarbon 113 (CFC 113)		| pM      |
+| Delta Oxygen-18						| ᵒ/ᵒᵒ    |
+
+
 The parameters of the functions will 
 be transmitted to nodc.noaa.gov (http://www.noaa.gov/privacy.html).
 
@@ -76,8 +111,39 @@ function download(lonrange,latrange,timerange,varname,email,basedir)
     URLextract = "https://www.nodc.noaa.gov/cgi-bin/OC5/SELECT/dbextract.pl"
     URLselect = "https://data.nodc.noaa.gov/woa/WOD/SELECT/"
 
-    # add more CF name to WOD web portal
-    variables = Dict("Temperature" => "tem")
+    # names from the WOD web portal
+    variables = Dict(
+        "Temperature"							=>	"tem",		# °C                              
+        "Salinity"								=>	"sal",		# unitless                        
+        "Oxygen"								=>	"oxy",		# ml l⁻¹               
+        "Phosphate"								=>	"phos",		# µM                              
+        "Silicate"								=>	"sil",		# µM                              
+        "Nitrate and Nitrate+Nitrite"			=>	"nit",		# µM                              
+        "pH"									=>	"ph",		# unitless                        
+        "Chlorophyll"							=>	"chl",		# µg l⁻¹               
+        "Plankton"								=>	"bio",		# multiple                        
+        "Alkalinity"							=>	"alk",		# meq l⁻¹              
+        "Partial Pressure of Carbon Dioxide"	=>	"pco",		# µatm                            
+        "Dissolved Inorganic Carbon"			=>	"tco",		# mM                              
+        "Transmissivity"						=>	"bac",		# m⁻¹                  
+        "Pressure"								=>	"pres",		# dbar                            
+        "Air temperature"						=>	"ato",		# °C                              
+        "CO2 warming"							=>	"wco",		# °C                              
+        "CO2 atmosphere"						=>	"aco",		# ppm                             
+        "Air pressure"							=>	"airp",		# mbar                            
+        "Tritium"								=>	"tri",		# TU                              
+        "Helium"								=>	"he",		# nM                              
+        "Delta Helium-3"						=>	"dhe",		# %                               
+        "Delta Carbon-14"						=>	"dc14",		# <sup>o</sup>/<sub>oo</sub>      
+        "Delta Carbon-13"						=>	"dc13",		# <sup>o</sup>/<sub>oo</sub>      
+        "Argon"									=>	"ar",		# nM                              
+        "Neon"									=>	"ne",		# nM                              
+        "Chlorofluorocarbon 11 (CFC 11)"		=>	"cf11",		# pM                              
+        "Chlorofluorocarbon 12 (CFC 12)"		=>	"cf12",		# pM                              
+        "Chlorofluorocarbon 113 (CFC 113)"		=>	"cf113",	# pM                              
+        "Delta Oxygen-18"						=>	"doxy",		# <sup>o</sup>/<sub>              
+    )
+    
     variable = variables[varname]
     # ## XBT corrections
 
