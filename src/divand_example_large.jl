@@ -146,7 +146,7 @@ lent = fill(1.,sz) # month
 # SeaDataNet will provide a dedicated machine-to-machine interface during
 # the SeaDataCloud project
 
-#WorldOceanDatabase.download(lonr,latr,timerange,varname,email,basedir)
+WorldOceanDatabase.download(lonr,latr,timerange,varname,email,basedir)
 
 
 
