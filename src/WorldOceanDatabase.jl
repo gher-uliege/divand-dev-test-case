@@ -351,8 +351,8 @@ function load!(dirname,indexname,varname,profiles,lons,lats,zs,times,ids)
                 # to zero and bogus value
 
                 good = ((profileflag .== accepted)  .&
-                        (.!DataArrays.isna.(profile)) .&
-                        (.!DataArrays.isna.(z)) .&
+                        (.!DataArrays.ismissing.(profile)) .&
+                        (.!DataArrays.ismissing.(z)) .&
                         (sigfigs .> 0))
                 
                 sizegood = (sum(good),)
