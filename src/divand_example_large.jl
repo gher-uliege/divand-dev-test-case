@@ -8,7 +8,7 @@ Vocab = divand.Vocab
 
 # resolution
 dx = dy = 0.25
-dx = dy = 1.
+dx = dy = 2.
 
 # vectors defining the longitude and latitudes grids
 # Here longitude and latitude correspond to the Mediterranean Sea
@@ -30,7 +30,7 @@ timerange = [Date(1000,1,1),Date(3000,12,31)]
 
 
 # months for the climatology (January, February,...)
-timer = collect(1:12)
+timer = 1:12
 
 # Name of the variable
 varname = "Temperature"
@@ -39,7 +39,8 @@ varname = "Temperature"
 email = "a.barth@ulg.ac.be"
 
 # path to save the results (will be created if necessary)
-basedir = expanduser("~/Downloads/WOD/Med-2016-large")
+basedir = expanduser("~/tmp/Data/Med/WOD-Med-large/")
+basedir = expanduser("~/Downloads/WOD/Med-2016")
 
 metadata = OrderedDict(
     # Name of the project (SeaDataCloud, SeaDataNet, EMODNET-Chemistry, ...)
@@ -146,7 +147,7 @@ lent = fill(1.,sz) # month
 # SeaDataNet will provide a dedicated machine-to-machine interface during
 # the SeaDataCloud project
 
-WorldOceanDatabase.download(lonr,latr,timerange,varname,email,basedir)
+#WorldOceanDatabase.download(lonr,latr,timerange,varname,email,basedir)
 
 
 
@@ -242,7 +243,7 @@ end
 #divand.divand_save("temperature.nc",mask,"temperature",fanalysis)
 
 
-filename = "temperature2.nc"
+filename = "temperature-large.nc"
 varname = "temperature"
 
 ncglobalattrib,ncvarattrib = divand.SDNMetadata(metadata,filename,varname,lonr,latr,fanalysis)
@@ -253,7 +254,7 @@ climatology_bounds[:,1] = DateTime(Dates.year(timerange[1]),1,1) + Dates.Month.(
 climatology_bounds[:,2] = DateTime(Dates.year(timerange[end]),1,1) + Dates.Month.(1:length(timer))
 
 
-climatology_bounds[:,1] = timerange[end] + Dates.Month.([-2,-1,0])
+#climatology_bounds[:,1] = timerange[end] + Dates.Month.([-2,-1,0])
 
 
 divand.divand_save2(filename,mask,(lonr,latr,depthr,timer),

@@ -138,7 +138,7 @@ lent = fill(1.,sz) # month
 # SeaDataNet will provide a dedicated machine-to-machine interface during
 # the SeaDataCloud project
 
-WorldOceanDatabase.download(lonr,latr,timerange,varname,email,basedir)
+#WorldOceanDatabase.download(lonr,latr,timerange,varname,email,basedir)
 
 
 
@@ -199,7 +199,7 @@ toaverage = [true,true,false,false]
 @time fmb,vaa = divand.divand_averaged_bg(mask,(pm,pn,po,pp),(xi,yi,zi,ti),(lon,lat,depth,time2),val,(lenx,leny,4*lenz,4*lent),epsilon2*10,toaverage)
 
 # perform the analysis
-@time fi,erri=divand.divandgo(mask,(pm,pn,po,pp),(xi,yi,zi,ti),(lon,lat,depth,time2),vaa,(lenx,leny,lenz,lent),epsilon2)
+@time fi,erri = divand.divandgo(mask,(pm,pn,po,pp),(xi,yi,zi,ti),(lon,lat,depth,time2),vaa,(lenx,leny,lenz,lent),epsilon2)
 
 #tol = 1e-3
 #@time fi2,s2=divand.varanalysis(mask,(pm,pn,po,pp),(xi,yi,zi,ti),(lon,lat,depth,time2),vaa,(lenx,leny,lenz,lent),epsilon2; progress = divand.cgprogress, tol = tol);
@@ -245,7 +245,7 @@ climatology_bounds[:,1] = DateTime(Dates.year(timerange[1]),1,1) + Dates.Month.(
 climatology_bounds[:,2] = DateTime(Dates.year(timerange[end]),1,1) + Dates.Month.(1:length(timer))
 
 
-climatology_bounds[:,1] = timerange[end] + Dates.Month.([-2,-1,0])
+#climatology_bounds[:,1] = timerange[end] + Dates.Month.([-2,-1,0])
 
 
 divand.divand_save2(filename,mask,(lonr,latr,depthr,timer),
