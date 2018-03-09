@@ -331,6 +331,11 @@ function load!(dirname,indexname,varname,profiles,lons,lats,zs,times,ids)
         id = @sprintf("wod_%09dO",cast[i])
         wodname = joinpath(dirname,@sprintf("wod_%09dO.nc",cast[i]))
 
+        if !isfile(wodname)
+            warn("File $(wodname) does not exist")
+            continue
+        end
+
         NCDatasets.Dataset(wodname) do nc
             #@show wodname, varname in nc
             if varname in nc
