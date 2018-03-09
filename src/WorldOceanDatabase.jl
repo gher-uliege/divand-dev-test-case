@@ -31,7 +31,8 @@ function extract(tarnames,basedir)
     for i = 1:length(tarnames)
         probe = split(tarnames[i],".")[3]
         dirnames[i] = joinpath(basedir,probe)
-        @show dirnames[i]
+        #@show dirnames[i]
+        info("Extracting $(dirnames[i])")
         mkpath(dirnames[i])
         extracttar(tarnames[i], dirnames[i])
     end
@@ -193,7 +194,7 @@ function download(lonrange,latrange,timerange,varname,email,basedir)
                     
                     if a["name"]  in ["file_name","probe_name","query_results"]
                         data[a["name"]] = a["value"]
-                        @show a["name"],a["value"]
+                        #@show a["name"],a["value"]
                     end
                     
                 end
@@ -232,7 +233,7 @@ function download(lonrange,latrange,timerange,varname,email,basedir)
 
     # number of files available
     probes = split(probe_name,',')
-    @show probes
+    #@show probes
     probes_available = String[]
 
     waittime = 0 # time to wait in cycles
@@ -346,8 +347,8 @@ function load!(dirname,indexname,varname,profiles,lons,lats,zs,times,ids)
                 # to zero and bogus value
 
                 good = ((profileflag .== accepted)  .&
-                        (.!DataArrays.isna.(profile)) .&
-                        (.!DataArrays.isna.(z)) .&
+                        (.!DataArrays.ismissing.(profile)) .&
+                        (.!DataArrays.ismissing.(z)) .&
                         (sigfigs .> 0))
                 
                 sizegood = (sum(good),)
