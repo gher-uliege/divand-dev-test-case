@@ -14,7 +14,7 @@ N number of dimensions
 type QT{T,TA,N}
     children :: Vector{QT{T,TA,N}}  # vector of child nodes (empty if node is a leaf)
     # list of coordinates (only non-empty if node is a leaf)
-    # points[i,:] coordinates of the i-th point
+    # points[:,i] coordinates of the i-th point
     points :: Array{T,2}            
     min :: Vector{T}                # minimum of bounding box
     max :: Vector{T}                # maximim of bounding box
@@ -23,14 +23,22 @@ end
 
 """create empty quadtree"""
 QT(TA::DataType,min::Vector{T}, max::Vector{T}) where T =
-    QT(QT{T,TA,size(min,1)}[],Matrix{T}(0,size(min,1)),min,max,TA[])
+    QT(QT{T,TA,size(min,1)}[],Matrix{T}(size(min,1),0),min,max,TA[])
 
 """create a quadtree"""
 
 QT(points::Array{T,2},attribs::Vector{TA}) where {T,TA} =
-    QT(QT{T,TA,size(points,2)}[],points,minimum(points,1)[:],maximum(points,1)[:],attribs)
+    QT(QT{T,TA,size(points,2)}[],points',minimum(points,1)[:],maximum(points,1)[:],attribs)
 
 QT(points::Array{T,2}, min::Vector{T}, max::Vector{T}, attribs::Vector{TA}) where {T,TA} =
+    QT(QT{T,TA,size(points,2)}[],points',min,max,attribs)
+
+
+
+QTnew(points::Array{T,2},attribs::Vector{TA}) where {T,TA} =
+    QT(QT{T,TA,size(points,2)}[],points,minimum(points,2)[:],maximum(points,2)[:],attribs)
+
+QTnew(points::Array{T,2}, min::Vector{T}, max::Vector{T}, attribs::Vector{TA}) where {T,TA} =
     QT(QT{T,TA,size(points,2)}[],points,min,max,attribs)
 
 
@@ -110,7 +118,7 @@ end
 number of points per node
 it is always zero for non-leaf nodes
 """
-Base.length(qt::QT) = size(qt.points,1)
+Base.length(qt::QT) = size(qt.points,2)
 
 isleaf(qt) = length(qt.children) == 0
 
@@ -143,7 +151,7 @@ function add!(qt::QT,x,attrib,max_cap = 10)
         return false
     else                
         if isleaf(qt)
-            qt.points  = cat(1,qt.points,x')
+            qt.points  = cat(2,qt.points,x)
             push!(qt.attribs,attrib)
             
             # split if necessary
@@ -179,7 +187,7 @@ function split!(qt::QT{T,TA,N}) where {T,TA,N}
         # bounds of child
         cmin = Vector{T}(N)
         cmax = Vector{T}(N)        
-        sel = trues(size(qt.points,1))
+        sel = trues(size(qt.points,2))
         
         @inbounds for i = 1:nchildren
             sel[:] = true
@@ -187,36 +195,20 @@ function split!(qt::QT{T,TA,N}) where {T,TA,N}
             for j = 1:N
                 # all corners of a hypercube
                 if bitget(i-1, j)
-                    sel = sel .& (qt.points[:,j] .<= xcenter[j])
+                    sel = sel .& (qt.points[j,:] .<= xcenter[j])
                     cmin[j] = qt.min[j]
                     cmax[j] = xcenter[j]                    
                 else
-                    sel = sel .& (qt.points[:,j] .> xcenter[j])
+                    sel = sel .& (qt.points[j,:] .> xcenter[j])
                     cmin[j] = xcenter[j]                    
                     cmax[j] = qt.max[j]
                 end
             end
             
-            children[i] = QT(qt.points[sel,:],copy(cmin),copy(cmax),qt.attribs[sel])
+            children[i] = QT(qt.points[:,sel]',copy(cmin),copy(cmax),qt.attribs[sel])
         end
         
         
-        # # in 2D
-        
-        # children = Vector{QT}(4)
-        
-        # sel1 = (qt.points[:,1] .<= xcenter[1]) .& (qt.points[:,2] .<= xcenter[2]);
-        # children[1] = QT(qt.points[sel1,:],qt.min,xcenter)
-        
-        # sel2 = (qt.points[:,1] .<= xcenter[1]) .& (qt.points[:,2] .> xcenter[2]);
-        # children[2] = QT(qt.points[sel2,:],[qt.min[1],xcenter[2]],[xcenter[1],qt.max[2]])
-        
-        # sel3 = (qt.points[:,1]  .> xcenter[1]) .& (qt.points[:,2] .<= xcenter[2]);
-        # children[3] = QT(qt.points[sel3,:],[xcenter[1],qt.min[2]],[qt.max[1],xcenter[2]])
-
-        # sel4 = (qt.points[:,1]  .> xcenter[1]) .& (qt.points[:,2] .> xcenter[2]);
-        # children[4] = QT(qt.points[sel4,:],[xcenter[1],xcenter[2]],[qt.max[1],qt.max[2]])
-
         qt.children = children
         
     end
@@ -236,8 +228,14 @@ function rsplit!(qt::QT{T,TA,N}, max_cap = 10) where {T,TA,N}
             return
         end
         
+        allequal = true
+
+        @inbounds for i = 2:size(qt.points,2)
+            allequal = allequal & (qt.points[:,i] == qt.points[:,1])
+        end
+
         # all points are equal, stop recursion
-        @inbounds if all(qt.points .== qt.points[1,:]')
+        if allequal
             return
         end
 
@@ -274,7 +272,7 @@ function within!(qt::QT{T,TA,N}, min, max, attribs) where {T,TA,N}
     if isleaf(qt)
         #@show "checking"
         @inbounds for i = 1:length(qt)
-            if inside(min,max,qt.points[i,:])
+            if inside(min,max,qt.points[:,i])
                 push!(attribs,qt.attribs[i])
             end
         end
@@ -285,10 +283,6 @@ function within!(qt::QT{T,TA,N}, min, max, attribs) where {T,TA,N}
         within!(child, min, max, attribs)
     end
     
-    #    if !Base.intersect(qt, min, max) & (size(points,1) > 0)
-    #        @show points,min,max
-    #        @show qt
-    #    end
     return attribs    
 end
 
@@ -301,8 +295,8 @@ function withincount!(qt::QT{T,TA,N}, min, max, count) where {T,TA,N}
     if isleaf(qt)
         #@show "checking"
         @inbounds for i = 1:length(qt)
-            #if inside(min,max,qt.points[i,:])
-            if inside(min,max,view(qt.points,i,:))
+            #if inside(min,max,qt.points[:,i])
+            if inside(min,max,view(qt.points,:,i))
                 count[ qt.attribs[i] ] += 1
             end
         end
@@ -356,7 +350,7 @@ function test()
 
         qt = Quadtrees.QT(X,collect(1:size(X,1)))
         @time attribs_res = within(qt,[0,0],[0.1,0.1])
-        @show attribs_res
+        @show attribs_res == [1,5]
 
 
         @test [bitget(42,i) for i = 6:-1:1] == [true,false,true,false,true,false]
