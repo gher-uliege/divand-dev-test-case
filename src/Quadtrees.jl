@@ -16,7 +16,7 @@ type QT{T,TA,N}
     points :: Array{T,2}            # list of coordinates (only non-empty if node is a leaf)
     min :: Vector{T}                # minimum of bounding box
     max :: Vector{T}                # maximim of bounding box
-    attribs :: Vector{TA}           # additional attributes (only non-empty if node is a leaf)w
+    attribs :: Vector{TA}           # additional attributes (only non-empty if node is a leaf)
 end
 
 """create empty quadtree"""
@@ -96,9 +96,9 @@ Test of the rectanges defined by x0,x1  and y0,y1 intersects
 
 function intersect(x0,x1,y0,y1)
     n = size(x0,1)
-    if (n != length(x1)) || (n != length(y0)) || (n != length(y1))
-        throw(ArgumentError("all arguments of intersect must have the same length"))
-    end
+#    if (n != length(x1)) || (n != length(y0)) || (n != length(y1))
+#        throw(ArgumentError("all arguments of intersect must have the same length"))
+#    end
 
     return intersect_(x0,x1,y0,y1) || intersect_(y0,y1,x0,x1)
 end
@@ -249,44 +249,68 @@ end
 
 
 """
-points,attribs = within(qt,min,max)
+    attribs = within(qt,min,max)
+
 Search all points within a bounding box defined by the vectors `min` and `max`.
 """
 
-function within{T,TA,N}(qt::QT{T,TA,N}, min, max)
+function within(qt::QT{T,TA,N}, min, max) where {T,TA,N}
+    attribs = TA[]
+    sizehint!(attribs,1)
+    within!(qt,min,max,attribs)
+    return attribs
+end
+
+function within!(qt::QT{T,TA,N}, min, max, attribs) where {T,TA,N}
+    #@show Base.intersect(qt, min, max), min, max, qt.min, qt.max
     if !Base.intersect(qt, min, max)
         # nothing to do
-        return Array{T,2}(0,N), TA[]
+        return
     end
 
     if isleaf(qt)
-        sel = Vector{Bool}(length(qt))
+        #@show "checking"
         @inbounds for i = 1:length(qt)
-            @inbounds sel[i] =  inside(min,max,qt.points[i,:])
+            if inside(min,max,qt.points[i,:])
+                push!(attribs,qt.attribs[i])
+            end
         end
-
-        return qt.points[sel,:], qt.attribs[sel]
+        return 
     end
-    
-    points = Array{T,2}(0,N)
-    attribs = TA[]
-    
-    for child in qt.children
-        cpoints,cattribs = within(child, min, max)
         
-        if size(cpoints,1) != 0
-            points = vcat(points,cpoints)
-            attribs = vcat(attribs,cattribs)
-        end
+    for child in qt.children
+        within!(child, min, max, attribs)
     end
     
     #    if !Base.intersect(qt, min, max) & (size(points,1) > 0)
     #        @show points,min,max
     #        @show qt
     #    end
-    return points,attribs
-    
+    return attribs    
 end
+
+function withincount!(qt::QT{T,TA,N}, min, max, count) where {T,TA,N}
+    if !Base.intersect(qt, min, max)
+        # nothing to do
+        return
+    end
+
+    if isleaf(qt)
+        #@show "checking"
+        @inbounds for i = 1:length(qt)
+            #if inside(min,max,qt.points[i,:])
+            if inside(min,max,view(qt.points,i,:))
+                count[ qt.attribs[i] ] += 1
+            end
+        end
+        return 
+    end
+        
+    for child in qt.children
+        withincount!(child, min, max, count)
+    end
+end
+
 
 function qplot(qt::QT)
     plot([qt.min[1], qt.max[1], qt.max[1], qt.min[1], qt.min[1]],
@@ -318,7 +342,20 @@ end
 
 
 function test()
+    
     @testset "quadtree" begin
+        
+        X = [0  0;
+             1  0;
+             1  1;
+             0  1;
+             0  0]
+
+        qt = Quadtrees.QT(X,collect(1:size(X,1)))
+        @time attribs_res = within(qt,[0,0],[0.1,0.1])
+        @show attribs_res
+
+
         @test [bitget(42,i) for i = 6:-1:1] == [true,false,true,false,true,false]
         
         @test inside([0,0],[1,1],[0.5,0.5]) == true
@@ -329,7 +366,7 @@ function test()
         @test intersect([0,0],[1,1],[1.5,1.5],[2,2]) == false
         # one rectange contains the other
         @test intersect([0,0],[1,1],[-1,-1],[2,2]) == true
-        @test_throws ArgumentError intersect([0,0],[1,1],[0.5,0.5],[2,2,3]) 
+        #@test_throws ArgumentError intersect([0,0],[1,1],[0.5,0.5],[2,2,3]) 
         
         qt = QT(Int,[0.,0.],[1.,1.])
         add!(qt,[0.1,0.1],1)
@@ -369,14 +406,10 @@ function test()
 
         @time xref,attribs_ref = simplesearch(X,attribs,xmin,xmax)
 
-        @time xin,attribs_res = within(qt2,xmin,xmax)
-        @time xin,attribs_res = within(qt2,xmin,xmax)
+        @time attribs_res = within(qt2,xmin,xmax)
 
-
-        #@show xin
         #@show xref
 
-        @test sortrows(xref) == sortrows(xin)
         @test sort(attribs_ref) == sort(attribs_res)
 
 
@@ -387,8 +420,7 @@ function test()
             add!(qt3,X[i,:],i)
         end
 
-        @time xin,attribs_res = within(qt3,xmin,xmax)
-        @test sortrows(xref) == sortrows(xin)
+        @time attribs_res = within(qt3,xmin,xmax)
         @test sort(attribs_ref) == sort(attribs_res)
 
 
@@ -409,9 +441,8 @@ function test()
             xmax = fill(0.5,(n,))
             
             @time xref,attribs_ref = simplesearch(X,attribs,xmin,xmax)
-            @time xin,attribs_res = within(qtND,xmin,xmax)
+            @time attribs_res = within(qtND,xmin,xmax)
 
-            @test sortrows(xref) == sortrows(xin)
             @test sort(attribs_ref) == sort(attribs_res)
 
             s = IOBuffer()
