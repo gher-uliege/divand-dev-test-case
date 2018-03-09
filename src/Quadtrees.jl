@@ -36,10 +36,10 @@ QT(points::Array{T,2}, min::Vector{T}, max::Vector{T}, attribs::Vector{TA}) wher
 
 
 QTnew(points::Array{T,2},attribs::Vector{TA}) where {T,TA} =
-    QT(QT{T,TA,size(points,2)}[],points,minimum(points,2)[:],maximum(points,2)[:],attribs)
+    QT(QT{T,TA,size(points,1)}[],points,minimum(points,2)[:],maximum(points,2)[:],attribs)
 
 QTnew(points::Array{T,2}, min::Vector{T}, max::Vector{T}, attribs::Vector{TA}) where {T,TA} =
-    QT(QT{T,TA,size(points,2)}[],points,min,max,attribs)
+    QT(QT{T,TA,size(points,1)}[],points,min,max,attribs)
 
 
 """       
@@ -205,7 +205,7 @@ function split!(qt::QT{T,TA,N}) where {T,TA,N}
                 end
             end
             
-            children[i] = QT(qt.points[:,sel]',copy(cmin),copy(cmax),qt.attribs[sel])
+            children[i] = QTnew(qt.points[:,sel],copy(cmin),copy(cmax),qt.attribs[sel])
         end
         
         
