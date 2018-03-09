@@ -12,6 +12,7 @@ of duplicates and each element of `duplicates` corresponds to the index in
 """
 
 function check_duplicates(x,delta; maxcap = 100)
+    lon,lat,z,time = x
     n = length(x)
     Nobs = length(x[1])
     
@@ -53,7 +54,8 @@ end
 
 
 
-function check_duplicates2(lon,lat,z,time,delta)
+function check_duplicates2(x,delta)
+    lon,lat,z,time = x
     time2 = [Dates.Millisecond(t - DateTime(1900,1,1)).value/24/60/60/1000 for t in time]
     X = [lon lat z time2]
     n = size(X,2)
