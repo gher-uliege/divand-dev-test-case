@@ -12,34 +12,39 @@ of duplicates and each element of `duplicates` corresponds to the index in
 """
 
 function check_duplicates(x,delta; maxcap = 100)
-    lon,lat,z,time = x
     n = length(x)
     Nobs = length(x[1])
-    
-    time2 = [Dates.Millisecond(t - DateTime(1900,1,1)).value/24/60/60/1000 for t in time]
-    X = [lon lat z time2]
-    n = size(X,2)
 
-    qt = Quadtrees.QT(X,collect(1:size(lon,1)))
+    X = Array{Float64,2}(n,Nobs)
+    for i = 1:n
+        if eltype(x[i]) <: DateTime
+            for j = 1:Nobs
+                X[i,j] = Dates.Millisecond(x[i][j] - DateTime(1900,1,1)).value/24/60/60/1000
+            end
+        else
+            X[i,:] = x[i]
+        end
+    end
+
+    @show size(X)
+    qt = Quadtrees.QTnew(X,collect(1:size(lon,1)))
     @time Quadtrees.rsplit!(qt, maxcap)
     
     #mult = Vector{Int}(size(X,1))
     duplicates = Vector{Vector{Int}}(0)
     delta2 = delta/2
 
-    index = Int[]
-
     xmin = zeros(n)
     xmax = zeros(n)
     
-    @time     @fastmath @inbounds for i = 1:size(X,1)
+    @time @fastmath @inbounds for i = 1:Nobs
         for j = 1:n
-            xmin[j] = X[i,j] - delta2[j]
-            xmax[j] = X[i,j] + delta2[j]
+            xmin[j] = X[j,i] - delta2[j]
+            xmax[j] = X[j,i] + delta2[j]
         end
 
-        resize!(index,0)
-        Quadtrees.within!(qt,xmin,xmax,index)
+        index = Quadtrees.within(qt,xmin,xmax)
+
         #mult = length(index)
         if length(index) > 1
             push!(duplicates,index)
