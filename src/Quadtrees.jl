@@ -13,22 +13,25 @@ N number of dimensions
 
 type QT{T,TA,N}
     children :: Vector{QT{T,TA,N}}  # vector of child nodes (empty if node is a leaf)
-    points :: Array{T,2}            # list of coordinates (only non-empty if node is a leaf)
+    # list of coordinates (only non-empty if node is a leaf)
+    # points[i,:] coordinates of the i-th point
+    points :: Array{T,2}            
     min :: Vector{T}                # minimum of bounding box
     max :: Vector{T}                # maximim of bounding box
     attribs :: Vector{TA}           # additional attributes (only non-empty if node is a leaf)
 end
 
 """create empty quadtree"""
-QT{T}(TA::DataType,min::Vector{T}, max::Vector{T}) = QT(QT{T,TA,size(min,1)}[],Matrix{T}(0,size(min,1)),min,max,TA[])
+QT(TA::DataType,min::Vector{T}, max::Vector{T}) where T =
+    QT(QT{T,TA,size(min,1)}[],Matrix{T}(0,size(min,1)),min,max,TA[])
 
 """create a quadtree"""
 
-QT{T,TA}(points::Array{T,2},attribs::Vector{TA}) = QT(QT{T,TA,size(points,2)}[],points,minimum(points,1)[:],maximum(points,1)[:],attribs)
+QT(points::Array{T,2},attribs::Vector{TA}) where {T,TA} =
+    QT(QT{T,TA,size(points,2)}[],points,minimum(points,1)[:],maximum(points,1)[:],attribs)
 
-QT{T,TA}(points::Array{T,2}, min::Vector{T}, max::Vector{T}, attribs::Vector{TA}) = QT(QT{T,TA,size(points,2)}[],points,min,max,attribs)
-#QT{T,TA,N}(children::Vector{QT{T,TA,N}}, min::Vector{T}, max::Vector{T}) = QT(children,Array{T,2}(0,N),min,max,TA[])
-
+QT(points::Array{T,2}, min::Vector{T}, max::Vector{T}, attribs::Vector{TA}) where {T,TA} =
+    QT(QT{T,TA,size(points,2)}[],points,min,max,attribs)
 
 
 """       
@@ -113,7 +116,7 @@ isleaf(qt) = length(qt.children) == 0
 
 inside(qt::QT,y) = inside(qt.min,qt.max,y)
 Base.intersect(qt::QT,y0,y1) = intersect(qt.min,qt.max,y0,y1)
-Base.ndims{T,TA,N}(qt::QT{T,TA,N}) = N
+Base.ndims(qt::QT{T,TA,N}) where {T,TA,N} = N
 
 function count(qt::QT)
     if isleaf(qt)
@@ -164,7 +167,7 @@ end
 split a single node
 """
 
-function split!{T,TA,N}(qt::QT{T,TA,N})
+function split!(qt::QT{T,TA,N}) where {T,TA,N}
     # N: number of dimenions
     
     if isleaf(qt)
@@ -223,7 +226,7 @@ end
 recursive split
 """
 
-function rsplit!{T,TA,N}(qt::QT{T,TA,N}, max_cap = 10)
+function rsplit!(qt::QT{T,TA,N}, max_cap = 10) where {T,TA,N}
 
 
     
@@ -432,6 +435,8 @@ function test()
             attribs = collect(1:size(X,1))
 
             qtND = QT(X,attribs)
+            #@show qtND.points[1:5,:]
+
             rsplit!(qtND)
 
             @test ndims(qtND) == n
