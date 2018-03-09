@@ -11,7 +11,90 @@ of duplicates and each element of `duplicates` corresponds to the index in
 `lons`, `lats`, `zs` and times`.
 """
 
-function check_duplicates(x,delta; maxcap = 100)
+function check_duplicates(x,delta; maxcap = 100, label = collect(1:size(x[1],1)))
+    n = length(x)
+    Nobs = length(x[1])
+
+    X = Array{Float64,2}(n,Nobs)
+    for i = 1:n
+        if eltype(x[i]) <: DateTime
+            for j = 1:Nobs
+                X[i,j] = Dates.Millisecond(x[i][j] - DateTime(1900,1,1)).value/24/60/60/1000
+            end
+        else
+            X[i,:] = x[i]
+        end
+    end
+
+    @show size(X)
+    qt = Quadtrees.QTnew(X,label)
+    @time Quadtrees.rsplit!(qt, maxcap)
+    
+    #mult = Vector{Int}(size(X,1))
+    duplicates = Vector{Set{Int}}(0)
+    delta2 = delta/2
+
+    xmin = zeros(n)
+    xmax = zeros(n)
+    
+    @time @fastmath @inbounds for i = 1:Nobs
+        for j = 1:n
+            xmin[j] = X[j,i] - delta2[j]
+            xmax[j] = X[j,i] + delta2[j]
+        end
+
+        index = Quadtrees.within(qt,xmin,xmax)
+
+        @show index
+        #mult = length(index)
+        if length(index) > 1
+            push!(duplicates,Set(index))
+            #@show index
+        end
+    end
+
+    #return mult,duplicates
+    return dupset(duplicates)
+end
+
+function dupset(duplicates)
+    d = Vector{Set{Int}}()
+    sizehint!(d,length(duplicates) ÷ 2)
+    
+    for i = 1:length(duplicates)
+        if !(duplicates[i] in d)
+            push!(d,duplicates[i])
+        end
+    end
+
+    return d
+end
+
+
+function check_duplicates2(x,delta; maxcap = 100)
+    function work(n,X,qt,delta2)
+        function check(i)
+            xmin = zeros(n)
+            xmax = zeros(n)
+            
+            for j = 1:n
+                xmin[j] = X[j,i] - delta2[j]
+                xmax[j] = X[j,i] + delta2[j]
+            end
+            
+            index = Quadtrees.within(qt,xmin,xmax)
+            
+            #mult = length(index)
+            if length(index) > 1
+                return index
+            else
+                return Int[]
+            end
+        end
+        
+        return check
+    end
+    
     n = length(x)
     Nobs = length(x[1])
 
@@ -36,24 +119,15 @@ function check_duplicates(x,delta; maxcap = 100)
 
     xmin = zeros(n)
     xmax = zeros(n)
-    
-    @time @fastmath @inbounds for i = 1:Nobs
-        for j = 1:n
-            xmin[j] = X[j,i] - delta2[j]
-            xmax[j] = X[j,i] + delta2[j]
-        end
 
-        index = Quadtrees.within(qt,xmin,xmax)
-
-        #mult = length(index)
-        if length(index) > 1
-            push!(duplicates,index)
-            #@show index
-        end
-    end
+    c = work(n,X,qt,delta2)
+    dup = pmap(c,1:Nobs; batch_size = 1000)
+#    @time @fastmath @inbounds for i = 1:Nobs
+#        check(i)
+#    end
 
     #return mult,duplicates
-    return duplicates
+    return filter(x -> !isempty(x),dup)
 end
 
 
