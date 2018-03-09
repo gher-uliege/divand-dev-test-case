@@ -57,32 +57,3 @@ function check_duplicates(x,delta; maxcap = 100)
 end
 
 
-
-
-function check_duplicates2(x,delta)
-    lon,lat,z,time = x
-    time2 = [Dates.Millisecond(t - DateTime(1900,1,1)).value/24/60/60/1000 for t in time]
-    X = [lon lat z time2]
-    n = size(X,2)
-
-    @time qt = Quadtrees.QT(X,collect(1:size(lon,1)))
-    @time Quadtrees.rsplit!(qt, 100)
-    
-    count = zeros(Int,size(X,1))
-    delta2 = delta/2
-
-    xmin = zeros(n)
-    xmax = zeros(n)
-    
-    @time     @fastmath @inbounds for i = 1:size(X,1)
-        for j = 1:n
-            xmin[j] = X[i,j] - delta2[j]
-            xmax[j] = X[i,j] + delta2[j]
-        end
-        #p,index = Quadtrees.within(qt,X[i,:] - delta2,X[i,:] + delta2)
-        
-        Quadtrees.withincount!(qt,xmin,xmax,count)
-    end
-
-    return count
-end
