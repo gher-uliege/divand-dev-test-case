@@ -5,7 +5,7 @@ import Quadtrees
 
 include("check_duplicates.jl")
 
-obsname = "/home/abarth/projects/Julia/divand.jl/examples/WOD-Salinity.nc"
+obsname = joinpath(dirname(@__FILE__),"..","..","divand-example-data","Provencal","WOD-Salinity.nc"))
 value,lon,lat,depth,obstime,ids = divand.loadobs(Float64,obsname,"Salinity")
 
 

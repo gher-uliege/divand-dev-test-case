@@ -1,3 +1,5 @@
+import divand
+
 function duplicates_refpoint(lon,lat,depth,time,value)
 
 
@@ -98,12 +100,16 @@ end
 end
 
 
+obsname = joinpath(dirname(@__FILE__),"..","..","divand-example-data","Provencal","WOD-Salinity.nc"))
+value,lon,lat,depth,obstime,ids = divand.loadobs(Float64,obsname,"Salinity")
+
+
 # warm-up
 sel = [1:1_000; 1];
 dep = duplicates_refpoint(lon[sel],lat[sel],depth[sel],obstime[sel],value[sel]);
 
 tic()
 isduplicate  = duplicates_refpoint(lon,lat,depth,obstime,value)
+toc() 
 ii = isduplicate.>0
 @show size(value[ii])
-toc() 
