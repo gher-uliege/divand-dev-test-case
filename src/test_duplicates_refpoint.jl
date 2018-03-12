@@ -1,7 +1,7 @@
 import divand
 
-function duplicates_refpoint(lon,lat,depth,time,value)
-
+function duplicates_refpoint(x,value)
+    lon,lat,depth,time = x
 
 dl=0.0005    # latitude (degree)
 # 0.0005    # longitude
@@ -106,10 +106,10 @@ value,lon,lat,depth,obstime,ids = divand.loadobs(Float64,obsname,"Salinity")
 
 # warm-up
 sel = [1:1_000; 1];
-dep = duplicates_refpoint(lon[sel],lat[sel],depth[sel],obstime[sel],value[sel]);
+dep = duplicates_refpoint((lon[sel],lat[sel],depth[sel],obstime[sel]),value[sel]);
 
 tic()
-isduplicate  = duplicates_refpoint(lon,lat,depth,obstime,value)
+isduplicate  = duplicates_refpoint((lon,lat,depth,obstime),value)
 toc() 
 ii = isduplicate.>0
 @show size(value[ii])
