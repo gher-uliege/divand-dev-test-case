@@ -5,13 +5,13 @@ import Quadtrees
 
 include("check_duplicates.jl")
 
-obsname = joinpath(dirname(@__FILE__),"..","..","divand-example-data","Provencal","WOD-Salinity.nc"))
+obsname = joinpath(dirname(@__FILE__),"..","..","divand-example-data","Provencal","WOD-Salinity.nc")
 value,lon,lat,depth,obstime,ids = divand.loadobs(Float64,obsname,"Salinity")
 
 
 sel = [1:100_000; 1]
 
-#sel = [1:100; 1]
+sel = [1:100_000; 1]
 #@time count = check_duplicates2((lon[sel],lat[sel],depth[sel],obstime[sel]),[0.001,0.001,1.,1./24]);
 
 @time dup = check_duplicates((lon[sel],lat[sel],depth[sel],obstime[sel]),[0.001,0.001,1.,1./24]);
