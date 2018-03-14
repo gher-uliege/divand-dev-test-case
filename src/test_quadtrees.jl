@@ -40,7 +40,6 @@ import Quadtrees
         @test Quadtrees.isleaf(qt.children[1]) == true
 
         X = rand(10000,2)
-        X = rand(100,2)
         attribs = collect(1:size(X,1))
         qt2 = Quadtrees.QT(X,attribs)
         Quadtrees.rsplit!(qt2,5)
@@ -75,7 +74,6 @@ import Quadtrees
 
         for i = 1:size(X,1)
             Quadtrees.add!(qt3,X[i,:],i)
-            @test Quadtrees.count(qt3) == i
         end
 
         @test Quadtrees.count(qt3) == size(X,1)
@@ -86,7 +84,7 @@ import Quadtrees
         # Test in 1D - 4D
 
         for n = 1:4
-            @show n
+            #@show n
             X = rand(100,n)
             attribs = collect(1:size(X,1))
 
@@ -111,13 +109,17 @@ import Quadtrees
             @test contains(String(take!(s)),"Node")
 
 
-            # duplicates
-            x = Float64[i for i = 1:10, j = 1:11]
-            y = Float64[j for i = 1:10, j = 1:11]
-            value = x+y;
-            sel = [1:length(x);1];
-            dup = Quadtrees.checkduplicates((x[sel],y[sel]),value[sel],[0.1,0.1],0.01)
-
         end
+
+        # duplicates
+        x = Float64[i for i = 1:10, j = 1:11]
+        y = Float64[j for i = 1:10, j = 1:11]
+        value = x+y;
+        sel = [1:length(x);1];
+        dup = Quadtrees.checkduplicates((x[sel],y[sel]),value[sel],[0.1,0.1],0.01)
+        @test dup == [[1,length(sel)]]
+
+        dup = Quadtrees.checkduplicates((x,y),value,(x[1:2],y[1:2]),value[1:2],[0.1,0.1],0.01)
+        @test dup == [[1],[2]]
 
     end
