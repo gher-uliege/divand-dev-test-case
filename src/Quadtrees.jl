@@ -145,7 +145,7 @@ Add point `x` with the attribute `attrib` to the quadtree `qt`.
 `sucess` is true if `x`is within the bounds of the quadtree node `qt` (otherwise 
 false and the point has not been added)
 """
-function add!(qt::QT,x,attrib,max_cap = 10)
+function add!(qt::QT{T,TA,N},x,attrib,max_cap = 10) where {T,TA,N}
 
     if !inside(qt,x)
         return false
@@ -156,6 +156,7 @@ function add!(qt::QT,x,attrib,max_cap = 10)
             
             # split if necessary
             rsplit!(qt, max_cap)
+
             return true
         else
             # try to add to all children and returns on first sucessful
@@ -165,7 +166,34 @@ function add!(qt::QT,x,attrib,max_cap = 10)
                 end
             end
 
+            # bounds of child
+            cmin = Vector{T}(N)
+            cmax = Vector{T}(N)
+            xcenter = (qt.max + qt.min)/2
+            
+            # create missing child
+            @inbounds for i = 1:2^N
+                for j = 1:N
+                    # all corners of a hypercube
+                    if bitget(i-1, j)
+                        cmin[j] = qt.min[j]
+                        cmax[j] = xcenter[j]                    
+                    else
+                        cmin[j] = xcenter[j]                    
+                        cmax[j] = qt.max[j]
+                    end
+                end
+
+                if all(cmin .< x .<= cmax)                    
+                    child = QT(TA,cmin,cmax)
+                    add!(child,x,attrib)
+                    push!(qt.children,child)
+                    return true
+                end
+            end
+            
             # should never happen
+            error("could not add $(x)")
             return false
         end
     end
@@ -217,6 +245,9 @@ function split!(qt::QT{T,TA,N}) where {T,TA,N}
 
         # trim leaves with no data
         resize!(qt.children,nchildreneff)
+
+        # remove points from node
+        qt.points = Matrix{T}(N,0)
     end
 end
 
@@ -375,9 +406,8 @@ function check_duplicates(x,delta; maxcap = 100, label = collect(1:size(x[1],1))
         end
     end
 
-    @show size(X)
     qt = Quadtrees.QTnew(X,label)
-    @time Quadtrees.rsplit!(qt, maxcap)
+    Quadtrees.rsplit!(qt, maxcap)
     
     #mult = Vector{Int}(size(X,1))
     duplicates = Vector{Set{Int}}(0)
@@ -386,7 +416,7 @@ function check_duplicates(x,delta; maxcap = 100, label = collect(1:size(x[1],1))
     xmin = zeros(n)
     xmax = zeros(n)
     
-    @time @fastmath @inbounds for i = 1:Nobs
+    @fastmath @inbounds for i = 1:Nobs
         for j = 1:n
             xmin[j] = X[j,i] - delta2[j]
             xmax[j] = X[j,i] + delta2[j]
@@ -451,9 +481,8 @@ function check_duplicatesv(x,value,delta,deltavalue; maxcap = 100, label = colle
         end
     end
 
-    @show size(X)
     qt = Quadtrees.QTnew(X,label)
-    @time Quadtrees.rsplit!(qt, maxcap)
+    Quadtrees.rsplit!(qt, maxcap)
     
     #mult = Vector{Int}(size(X,1))
     duplicates = Vector{Set{Int}}(0)
@@ -462,7 +491,7 @@ function check_duplicatesv(x,value,delta,deltavalue; maxcap = 100, label = colle
     xmin = zeros(n)
     xmax = zeros(n)
     
-    @time @fastmath @inbounds for i = 1:Nobs
+    @fastmath @inbounds for i = 1:Nobs
         for j = 1:n
             xmin[j] = X[j,i] - delta2[j]
             xmax[j] = X[j,i] + delta2[j]
@@ -504,7 +533,8 @@ function check_duplicatesv(x,value,delta,deltavalue; maxcap = 100, label = colle
     return duplicates
 end
 
-function catx(x)
+function catx(x::Tuple)
+    n = length(x)
     Nobs = length(x[1])
 
     X = Array{Float64,2}(n,Nobs)
@@ -522,31 +552,33 @@ end
 
 
 """
-    dupl = checkduplicates(x1,value1,v2,value2,delta,deltavalue)
+    dupl = checkduplicates(x,value,delta,deltavalue)
 
 Based the coordinates `x` (a tuple of longitude `lons`, latitudes `lats`, depth (`zs`) 
 and time (`times`)) check of points who are in the same spatio-temporal bounding
  box of a length `delta`. `delta` is a vector with 4 elements corresponding to 
 longitude, latitude, depth and time
-(in days). `mult` is a vector of the same length than `lons` with the number of
-time an observation is present within this bounding box and `duplicates` a list
-of duplicates and each element of `duplicates` corresponds to the index in
-`lons`, `lats`, `zs` and times`.
+(in days). `dupl` a vector of vectors containing indices of the duplicates.
 """
 
+function checkduplicates(x::Tuple,value,delta,deltavalue;
+                         maxcap = 100, label = collect(1:size(x[1],1)))
+    n = length(x)
+    Nobs = length(x[1])
 
-function checkduplicates(x1,value1,x2,value2,delta,deltavalue;
-                         maxcap = 100, label = collect(1:size(x2[1],1)))
-    n = length(x1)
-    Nobs1 = length(x1[1])
-    Nobs2 = length(x2[1])
+    X = Array{Float64,2}(n,Nobs)
+    for i = 1:n
+        if eltype(x[i]) <: DateTime
+            for j = 1:Nobs
+                X[i,j] = Dates.Millisecond(x[i][j] - DateTime(1900,1,1)).value/24/60/60/1000
+            end
+        else
+            X[i,:] = x[i]
+        end
+    end
 
-    X1 = catx(x1)
-    X2 = catx(x2)
-
-    @show size(X1)
-    qt = Quadtrees.QTnew(X1,label)
-    @time Quadtrees.rsplit!(qt, maxcap)
+    qt = Quadtrees.QTnew(X,label)
+    Quadtrees.rsplit!(qt, maxcap)
     
     #mult = Vector{Int}(size(X,1))
     duplicates = Vector{Set{Int}}(0)
@@ -555,10 +587,10 @@ function checkduplicates(x1,value1,x2,value2,delta,deltavalue;
     xmin = zeros(n)
     xmax = zeros(n)
     
-    @time @fastmath @inbounds for i = 1:Nobs2
+    @fastmath @inbounds for i = 1:Nobs
         for j = 1:n
-            xmin[j] = X2[j,i] - delta2[j]
-            xmax[j] = X2[j,i] + delta2[j]
+            xmin[j] = X[j,i] - delta2[j]
+            xmax[j] = X[j,i] + delta2[j]
         end
 
         index = Quadtrees.within(qt,xmin,xmax)
@@ -592,191 +624,59 @@ function checkduplicates(x1,value1,x2,value2,delta,deltavalue;
         end
     end
 
-    #return mult,duplicates
-    #return dupset(duplicates)
-    return duplicates
+    # collect(Set(...)) returns unique elements
+    # collect.() transform the list of sets into a list of list
+    return sort.(collect.(collect(Set(duplicates))))
+
 end
 
+"""
+    dupl = checkduplicates(x1,value1,v2,value2,delta,deltavalue)
 
+"""
 
+function checkduplicates(x1::Tuple,value1,
+                         x2::Tuple,value2,
+                         delta, deltavalue;
+                         maxcap = 100,
+                         label1 = collect(1:size(x1[1],1))
+                         )
+    X1 = catx(x1)
+    X2 = catx(x2)
 
+    n = size(X1,1)
+    Nobs1 = size(X1,2)
+    Nobs2 = size(X2,2)
 
-function check_duplicates2(x,delta; maxcap = 100)
-    function work(n,X,qt,delta2)
-        function check(i)
-            xmin = zeros(n)
-            xmax = zeros(n)
-            
-            for j = 1:n
-                xmin[j] = X[j,i] - delta2[j]
-                xmax[j] = X[j,i] + delta2[j]
-            end
-            
-            index = Quadtrees.within(qt,xmin,xmax)
-            
-            #mult = length(index)
-            if length(index) > 1
-                return index
-            else
-                return Int[]
-            end
-        end
-        
-        return check
-    end
+    qt = Quadtrees.QTnew(X1,label1)
+    Quadtrees.rsplit!(qt, maxcap)
     
-    n = length(x)
-    Nobs = length(x[1])
-
-    X = Array{Float64,2}(n,Nobs)
-    for i = 1:n
-        if eltype(x[i]) <: DateTime
-            for j = 1:Nobs
-                X[i,j] = Dates.Millisecond(x[i][j] - DateTime(1900,1,1)).value/24/60/60/1000
-            end
-        else
-            X[i,:] = x[i]
-        end
-    end
-
-    @show size(X)
-    qt = Quadtrees.QTnew(X,collect(1:size(lon,1)))
-    @time Quadtrees.rsplit!(qt, maxcap)
-    
-    #mult = Vector{Int}(size(X,1))
-    duplicates = Vector{Vector{Int}}(0)
+    duplicates = Vector{Vector{Int}}(Nobs2)
     delta2 = delta/2
 
     xmin = zeros(n)
     xmax = zeros(n)
+    
+    @fastmath @inbounds for i = 1:Nobs2
+        for j = 1:n
+            xmin[j] = X2[j,i] - delta2[j]
+            xmax[j] = X2[j,i] + delta2[j]
+        end
 
-    c = work(n,X,qt,delta2)
-    dup = pmap(c,1:Nobs; batch_size = 1000)
-#    @time @fastmath @inbounds for i = 1:Nobs
-#        check(i)
-#    end
+        index = Quadtrees.within(qt,xmin,xmax)
 
-    #return mult,duplicates
-    return filter(x -> !isempty(x),dup)
+        if length(index) > 0            
+            # check for values
+            vv = value1[index]
+            duplicates[i] = sort(index[abs.(vv - value2[i]) .< deltavalue])
+        else
+            duplicates[i] = Int[]
+        end
+    end
+
+    return duplicates
 end
 
-
-
-
-function test()
-    
-    @testset "quadtree" begin
-        
-        X = [0  0;
-             1  0;
-             1  1;
-             0  1;
-             0  0]
-
-        qt = Quadtrees.QT(X,collect(1:size(X,1)))
-        @time attribs_res = within(qt,[0,0],[0.1,0.1])
-        @show attribs_res == [1,5]
-
-
-        @test [bitget(42,i) for i = 6:-1:1] == [true,false,true,false,true,false]
-        
-        @test inside([0,0],[1,1],[0.5,0.5]) == true
-        @test inside([0,0],[1,1],[1.5,1.5]) == false
-        
-
-        @test intersect([0,0],[1,1],[0.5,0.5],[2,2]) == true
-        @test intersect([0,0],[1,1],[1.5,1.5],[2,2]) == false
-        # one rectange contains the other
-        @test intersect([0,0],[1,1],[-1,-1],[2,2]) == true
-        #@test_throws ArgumentError intersect([0,0],[1,1],[0.5,0.5],[2,2,3]) 
-        
-        qt = QT(Int,[0.,0.],[1.,1.])
-        add!(qt,[0.1,0.1],1)
-        add!(qt,[0.2,0.2],2)
-        add!(qt,[0.7,0.7],3)
-        add!(qt,[0.9,0.1],4)
-
-        split!(qt)
-
-
-        @test isleaf(qt) == false
-        @test isleaf(qt.children[1]) == true
-
-        X = rand(10000,2)
-        attribs = collect(1:size(X,1))
-
-        @time begin
-            qt2 = QT(X,attribs)
-            rsplit!(qt2,5)
-        end
-
-        #rplot(qt2)
-        #plot(X[:,1],X[:,2],"b.")
-
-        xmin = [0.3,0.3]
-        xmax = [0.51,0.51]
-
-        function simplesearch(X,attribs,xmin,xmax)
-            sel = trues(size(X,1))
-            for j = 1:size(X,2)
-                sel = sel .& (xmin[j] .<= X[:,j] .<= xmax[j])
-            end
-            ind = find(sel)
-            return X[ind,:],attribs[ind]
-        end
-
-
-        @time xref,attribs_ref = simplesearch(X,attribs,xmin,xmax)
-
-        @time attribs_res = within(qt2,xmin,xmax)
-
-        #@show xref
-
-        @test sort(attribs_ref) == sort(attribs_res)
-
-
-        # progressively add all points
-        qt3 = QT(Int,[0.,0.],[1.,1.])
-
-        for i = 1:size(X,1)
-            add!(qt3,X[i,:],i)
-        end
-
-        @time attribs_res = within(qt3,xmin,xmax)
-        @test sort(attribs_ref) == sort(attribs_res)
-
-
-        # Test in 1D - 4D
-
-        for n = 1:4
-            @show n
-            X = rand(100,n)
-            attribs = collect(1:size(X,1))
-
-            qtND = QT(X,attribs)
-            #@show qtND.points[1:5,:]
-
-            rsplit!(qtND)
-
-            @test ndims(qtND) == n
-            @test count(qtND) == size(X,1)
-            
-            xmin = fill(0.0,(n,))
-            xmax = fill(0.5,(n,))
-            
-            @time xref,attribs_ref = simplesearch(X,attribs,xmin,xmax)
-            @time attribs_res = within(qtND,xmin,xmax)
-
-            @test sort(attribs_ref) == sort(attribs_res)
-
-            s = IOBuffer()
-            show(s,qtND)
-            @test contains(String(take!(s)),"Node")
-
-        end
-
-    end
-end # function test()
 
 export  QT, rsplit!, add!, show, ndims, count
     
